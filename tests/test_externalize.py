@@ -4162,10 +4162,26 @@ def test_call_sites_resolved_after_a_renaming_transform() -> None:
         .to_coreai()
     )
 
-    pattern = """
-    // CHECK-COUNT-2: coreai.invoke
+    # Capturing the graph names ties each invoke to a distinct submodule, so a
+    # resolution that collapsed both call sites onto one lowering would fail.
+    check_file = """
+        // CHECK-LABEL: module {
+        // CHECK:   coreai.graph private noinline @[[NORM0:norm\\.rmsnorm_impl_[0-9a-f]+]](
+        // CHECK-SAME: composite_decl = #coreai.composite_declaration<"rms_norm"
+        // CHECK:     coreai.output
+        // CHECK:   }
+        // CHECK:   coreai.graph private noinline @[[NORM1:norm\\.rmsnorm_impl_[0-9a-f]+]](
+        // CHECK-SAME: composite_decl = #coreai.composite_declaration<"rms_norm"
+        // CHECK:     coreai.output
+        // CHECK:   }
+        // CHECK:   coreai.graph @main(
+        // CHECK:     coreai.invoke @[[NORM0]](
+        // CHECK:     coreai.invoke @[[NORM1]](
+        // CHECK:     coreai.output
+        // CHECK:   }
+        // CHECK: }
     """
-    filecheck_pattern(str(coreai_program.get_graph("main")), pattern)
+    filecheck_pattern(str(coreai_program), check_file=check_file)
 
 
 def test_mismatched_call_site_count_warns_and_falls_back() -> None:
